@@ -202,6 +202,52 @@ class SynchroGenerator:
         
         return self.generate_file_content(all_nodes, links, intersections)
     
+    def generate_lanes_section(self, center_node_id, intersections):
+        """Generate complete lanes section for an intersection"""
+        lanes_data = []
+        
+        # Find the intersection data
+        intersection = next((i for i in intersections if i['center_node']['id'] == center_node_id), None)
+        if not intersection:
+            return lanes_data
+        
+        # For each direction, create lane data
+        for direction in ['NB', 'SB', 'EB', 'WB']:
+            # Find approach node for this direction
+            approach = next((a for a in intersection['approaches'] if a['direction'] == direction), None)
+            if not approach:
+                continue
+            
+            # Determine destination nodes
+            dest_nodes = {'L': None, 'T': None, 'R': None}
+            
+            # Through movement - opposite direction
+            opposite_dir = {'NB': 'SB', 'SB': 'NB', 'EB': 'WB', 'WB': 'EB'}[direction]
+            opposite_approach = next((a for a in intersection['approaches'] if a['direction'] == opposite_dir), None)
+            if opposite_approach:
+                dest_nodes['T'] = opposite_approach['id']
+            
+            # Left turn
+            left_dir = {'NB': 'WB', 'SB': 'EB', 'EB': 'NB', 'WB': 'SB'}[direction]
+            left_approach = next((a for a in intersection['approaches'] if a['direction'] == left_dir), None)
+            if left_approach:
+                dest_nodes['L'] = left_approach['id']
+            
+            # Right turn
+            right_dir = {'NB': 'EB', 'SB': 'WB', 'EB': 'SB', 'WB': 'NB'}[direction]
+            right_approach = next((a for a in intersection['approaches'] if a['direction'] == right_dir), None)
+            if right_approach:
+                dest_nodes['R'] = right_approach['id']
+            
+            lanes_data.append({
+                'direction': direction,
+                'approach_node': approach['id'],
+                'dest_nodes': dest_nodes,
+                'config': intersection['config']
+            })
+        
+        return lanes_data
+    
     def generate_file_content(self, all_nodes, links, intersections):
         """Generate Synchro file content"""
         output = io.StringIO()
@@ -332,22 +378,179 @@ class SynchroGenerator:
         
         output.write("\t\t\t\t\t\t\t\t\n")
         
-        # LANES SECTION (simplified)
+        # LANES SECTION - Complete version
         output.write("[Lanes]\t\t\t\t\t\t\t\t\n")
         output.write("Lane Group Data\t\t\t\t\t\t\t\t\n")
         output.write("RECORDNAME\tINTID\tNBL\tNBT\tNBR\tSBL\tSBT\tSBR\tEBL\tEBT\tEBR\tWBL\tWBT\tWBR\tPED\tHOLD\n")
+        
+        for intersection in intersections:
+            center_id = intersection['center_node']['id']
+            lanes_data = self.generate_lanes_section(center_id, intersections)
+            
+            if lanes_data:
+                # Up Node row
+                output.write(f"Up Node\t{center_id}\t")
+                for d in ['NB', 'SB', 'EB', 'WB']:
+                    ld = next((l for l in lanes_data if l['direction'] == d), None)
+                    if ld:
+                        output.write(f"{ld['approach_node']}\t{ld['approach_node']}\t{ld['approach_node']}\t")
+                    else:
+                        output.write("\t\t\t")
+                output.write("\t\n")
+                
+                # Dest Node row
+                output.write(f"Dest Node\t{center_id}\t")
+                for d in ['NB', 'SB', 'EB', 'WB']:
+                    ld = next((l for l in lanes_data if l['direction'] == d), None)
+                    if ld:
+                        output.write(f"{ld['dest_nodes']['L'] or ''}\t{ld['dest_nodes']['T'] or ''}\t{ld['dest_nodes']['R'] or ''}\t")
+                    else:
+                        output.write("\t\t\t")
+                output.write("\t\n")
+                
+                # Lanes row
+                output.write(f"Lanes\t{center_id}\t")
+                for d in ['NB', 'SB', 'EB', 'WB']:
+                    ld = next((l for l in lanes_data if l['direction'] == d), None)
+                    if ld:
+                        through_lanes = ld['config']['lanes'][d]
+                        rt_shared = ld['config']['rt_shared'][d]
+                        right_lanes = 0 if rt_shared == 2 else 1
+                        output.write(f"1\t{through_lanes}\t{right_lanes}\t")
+                    else:
+                        output.write("\t\t\t")
+                output.write("\t\n")
+                
+                # Shared row
+                output.write(f"Shared\t{center_id}\t")
+                for d in ['NB', 'SB', 'EB', 'WB']:
+                    ld = next((l for l in lanes_data if l['direction'] == d), None)
+                    if ld:
+                        rt_shared = ld['config']['rt_shared'][d]
+                        output.write(f"0\t{rt_shared}\t\t")
+                    else:
+                        output.write("\t\t\t")
+                output.write("\t\n")
+                
+                # Width row
+                output.write(f"Width\t{center_id}\t12\t12\t12\t12\t12\t12\t12\t12\t12\t12\t12\t12\t\t\n")
+                
+                # Storage row
+                output.write(f"Storage\t{center_id}\t")
+                for d in ['NB', 'SB', 'EB', 'WB']:
+                    ld = next((l for l in lanes_data if l['direction'] == d), None)
+                    if ld:
+                        rt_storage = ld['config']['rt_storage'][d]
+                        output.write(f"150\t\t{rt_storage}\t")
+                    else:
+                        output.write("\t\t\t")
+                output.write("\t\n")
+                
+                # Additional rows
+                output.write(f"Taper\t{center_id}\t25\t\t25\t25\t\t25\t25\t\t25\t25\t\t25\t\t\n")
+                output.write(f"StLanes\t{center_id}\t1\t\t1\t1\t\t1\t1\t\t1\t1\t\t1\t\t\n")
+                output.write(f"Grade\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"Speed\t{center_id}\t\t30\t\t\t30\t\t\t30\t\t\t30\t\t\t\n")
+                output.write(f"Phase1\t{center_id}\t\t2\t\t\t6\t\t\t4\t\t\t8\t\t\t\n")
+                output.write(f"PermPhase1\t{center_id}\t2\t\t2\t6\t\t6\t4\t\t4\t8\t\t8\t\t\n")
+                output.write(f"LostTime\t{center_id}\t4\t4\t4\t4\t4\t4\t4\t4\t4\t4\t4\t4\t\t\n")
+                output.write(f"Lost Time Adjust\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"IdealFlow\t{center_id}\t1900\t1900\t1900\t1900\t1900\t1900\t1900\t1900\t1900\t1900\t1900\t1900\t\t\n")
+                output.write(f"SatFlow\t{center_id}\t1770\t3539\t1583\t1770\t3539\t1583\t1770\t3539\t1583\t1770\t3539\t1583\t\t\n")
+                output.write(f"SatFlowPerm\t{center_id}\t1341\t3539\t1583\t1341\t3539\t1583\t1272\t3539\t1583\t1272\t3539\t1583\t\t\n")
+                output.write(f"Allow RTOR\t{center_id}\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\t\t\n")
+                output.write(f"SatFlowRTOR\t{center_id}\t0\t0\t27\t0\t0\t27\t0\t0\t54\t0\t0\t54\t\t\n")
+                output.write(f"Volume\t{center_id}\t25\t50\t25\t25\t50\t25\t50\t100\t50\t50\t100\t50\t\t\n")
+                output.write(f"Peds\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"Bicycles\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"PHF\t{center_id}\t0.92\t0.92\t0.92\t0.92\t0.92\t0.92\t0.92\t0.92\t0.92\t0.92\t0.92\t0.92\t\t\n")
+                output.write(f"Growth\t{center_id}\t100\t100\t100\t100\t100\t100\t100\t100\t100\t100\t100\t100\t\t\n")
+                output.write(f"HeavyVehicles\t{center_id}\t2\t2\t2\t2\t2\t2\t2\t2\t2\t2\t2\t2\t\t\n")
+                output.write(f"BusStops\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"Midblock\t{center_id}\t\t0\t\t\t0\t\t\t0\t\t\t0\t\t\t\n")
+                output.write(f"Distance\t{center_id}\t\t{self.standard_approach_distance}\t\t\t{self.standard_approach_distance}\t\t\t{self.standard_approach_distance}\t\t\t{self.standard_approach_distance}\t\t\t\n")
+                output.write(f"TravelTime\t{center_id}\t\t{self.standard_approach_distance/30*3600/5280:.1f}\t\t\t{self.standard_approach_distance/30*3600/5280:.1f}\t\t\t{self.standard_approach_distance/30*3600/5280:.1f}\t\t\t{self.standard_approach_distance/30*3600/5280:.1f}\t\t\t\n")
+                output.write(f"Right Channeled\t{center_id}\t\t\t0\t\t\t0\t\t\t0\t\t\t0\t\t\n")
+                output.write(f"Alignment\t{center_id}\t0\t0\t1\t0\t0\t1\t0\t0\t1\t0\t0\t1\t\t\n")
+                output.write(f"Enter Blocked\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"HeadwayFact\t{center_id}\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\t\t\n")
+                output.write(f"Turning Speed\t{center_id}\t15\t60\t9\t15\t60\t9\t15\t60\t9\t15\t60\t9\t\t\n")
+                output.write(f"FirstDetect\t{center_id}\t20\t100\t20\t20\t100\t20\t20\t100\t20\t20\t100\t20\t\t\n")
+                output.write(f"LastDetect\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"DetectPhase1\t{center_id}\t2\t2\t2\t6\t6\t6\t4\t4\t4\t8\t8\t8\t\t\n")
+                output.write(f"DetectPhase2\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"DetectPhase3\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"DetectPhase4\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"SwitchPhase\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"numDetects\t{center_id}\t1\t2\t1\t1\t2\t1\t1\t2\t1\t1\t2\t1\t\t\n")
+                output.write(f"DetectPos1\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"DetectSize1\t{center_id}\t20\t6\t20\t20\t6\t20\t20\t6\t20\t20\t6\t20\t\t\n")
+                output.write(f"DetectType1\t{center_id}\t3\t3\t3\t3\t3\t3\t3\t3\t3\t3\t3\t3\t\t\n")
+                output.write(f"DetectExtend1\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"DetectQueue1\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"DetectDelay1\t{center_id}\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\t\n")
+                output.write(f"DetectPos2\t{center_id}\t\t94\t\t\t94\t\t\t94\t\t\t94\t\t\t\n")
+                output.write(f"DetectSize2\t{center_id}\t\t6\t\t\t6\t\t\t6\t\t\t6\t\t\t\n")
+                output.write(f"DetectType2\t{center_id}\t\t3\t\t\t3\t\t\t3\t\t\t3\t\t\t\n")
+                output.write(f"DetectExtend2\t{center_id}\t\t0\t\t\t0\t\t\t0\t\t\t0\t\t\t\n")
+                output.write(f"Exit Lanes\t{center_id}\t\t0\t\t\t0\t\t\t0\t\t\t0\t\t\t\n")
+                output.write(f"CBD\t{center_id}\t\t0\t\t\t\t\t\t\t\t\t\t\t\t\n")
+                output.write(f"Lane Group Flow\t{center_id}\t27\t54\t27\t27\t54\t27\t54\t109\t54\t54\t109\t54\t\t\n")
+        
         output.write("\t\t\t\t\t\t\t\t\n")
         
-        # TIMEPLANS SECTION (simplified)
+        # TIMEPLANS SECTION - Complete version
         output.write("[Timeplans]\t\t\t\t\t\t\t\t\n")
         output.write("Timing Plan Settings\t\t\t\t\t\t\t\t\n")
         output.write("RECORDNAME\tINTID\tDATA\t\t\t\t\t\t\n")
+        
+        for intersection in intersections:
+            center_id = intersection['center_node']['id']
+            output.write(f"Control Type\t{center_id}\t0\t\t\t\t\t\t\n")
+            output.write(f"Cycle Length\t{center_id}\t40\t\t\t\t\t\t\n")
+            output.write(f"Lock Timings\t{center_id}\t0\t\t\t\t\t\t\n")
+            output.write(f"Referenced To\t{center_id}\t0\t\t\t\t\t\t\n")
+            output.write(f"Reference Phase\t{center_id}\t2\t\t\t\t\t\t\n")
+            output.write(f"Offset\t{center_id}\t8\t\t\t\t\t\t\n")
+            output.write(f"Master\t{center_id}\t0\t\t\t\t\t\t\n")
+            output.write(f"Yield\t{center_id}\t0\t\t\t\t\t\t\n")
+            output.write(f"Node 0\t{center_id}\t{center_id}\t\t\t\t\t\t\n")
+            output.write(f"Node 1\t{center_id}\t0\t\t\t\t\t\t\n")
+        
         output.write("\t\t\t\t\t\t\t\t\n")
         
-        # PHASES SECTION (simplified)
+        # PHASES SECTION - Complete version
         output.write("[Phases]\t\t\t\t\t\t\t\t\n")
         output.write("Phasing Data\t\t\t\t\t\t\t\t\n")
         output.write("RECORDNAME\tINTID\tD1\tD2\tD3\tD4\tD5\tD6\tD7\tD8\t\t\t\t\n")
+        
+        for intersection in intersections:
+            center_id = intersection['center_node']['id']
+            output.write(f"BRP\t{center_id}\t111\t112\t211\t212\t121\t122\t221\t222\t\t\t\t\n")
+            output.write(f"MinGreen\t{center_id}\t\t4\t\t4\t\t4\t\t4\t\t\t\t\n")
+            output.write(f"MaxGreen\t{center_id}\t\t16\t\t16\t\t16\t\t16\t\t\t\t\n")
+            output.write(f"VehExt\t{center_id}\t\t3\t\t3\t\t3\t\t3\t\t\t\t\n")
+            output.write(f"TimeBeforeReduce\t{center_id}\t\t0\t\t0\t\t0\t\t0\t\t\t\t\n")
+            output.write(f"TimeToReduce\t{center_id}\t\t0\t\t0\t\t0\t\t0\t\t\t\t\n")
+            output.write(f"MinGap\t{center_id}\t\t3\t\t3\t\t3\t\t3\t\t\t\t\n")
+            output.write(f"Yellow\t{center_id}\t\t3.5\t\t3.5\t\t3.5\t\t3.5\t\t\t\t\n")
+            output.write(f"AllRed\t{center_id}\t\t0.5\t\t0.5\t\t0.5\t\t0.5\t\t\t\t\n")
+            output.write(f"Recall\t{center_id}\t\t3\t\t3\t\t3\t\t3\t\t\t\t\n")
+            output.write(f"Walk\t{center_id}\t\t5\t\t5\t\t5\t\t5\t\t\t\t\n")
+            output.write(f"DontWalk\t{center_id}\t\t11\t\t11\t\t11\t\t11\t\t\t\t\n")
+            output.write(f"PedCalls\t{center_id}\t\t0\t\t0\t\t0\t\t0\t\t\t\t\n")
+            output.write(f"MinSplit\t{center_id}\t\t20\t\t20\t\t20\t\t20\t\t\t\t\n")
+            output.write(f"DualEntry\t{center_id}\t\t1\t\t1\t\t1\t\t1\t\t\t\t\n")
+            output.write(f"InhibitMax\t{center_id}\t\t1\t\t1\t\t1\t\t1\t\t\t\t\n")
+            output.write(f"Start\t{center_id}\t\t8\t\t28\t\t8\t\t28\t\t\t\t\n")
+            output.write(f"End\t{center_id}\t\t28\t\t8\t\t28\t\t8\t\t\t\t\n")
+            output.write(f"Yield\t{center_id}\t\t24\t\t4\t\t24\t\t4\t\t\t\t\n")
+            output.write(f"Yield170\t{center_id}\t\t13\t\t33\t\t13\t\t33\t\t\t\t\n")
+            output.write(f"LocalStart\t{center_id}\t\t0\t\t20\t\t0\t\t20\t\t\t\t\n")
+            output.write(f"LocalYield\t{center_id}\t\t16\t\t36\t\t16\t\t36\t\t\t\t\n")
+            output.write(f"LocalYield170\t{center_id}\t\t5\t\t25\t\t5\t\t25\t\t\t\t\n")
+            output.write(f"ActGreen\t{center_id}\t\t16\t\t16\t\t16\t\t16\t\t\t\t\n")
+        
         output.write("\t\t\t\t\t\t\t\t\n")
         
         return output.getvalue()
