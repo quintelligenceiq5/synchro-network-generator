@@ -1,0 +1,7 @@
+streamlit==1.31.0
+requests==2.31.0
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+google-api-python-core==2.15.0
+gspread==6.0.0
