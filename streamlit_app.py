@@ -438,61 +438,97 @@ def main():
     # Step 1: Add Intersections
     st.markdown('<div class="step-header"><h2>Step 1: Add Intersections</h2></div>', unsafe_allow_html=True)
     
-    with st.form("add_intersection_form"):
-        col1, col2 = st.columns([3, 1])
+    # Intersection name input (outside form)
+    intersection_name = st.text_input(
+        "Intersection Name:",
+        placeholder="Haggerty Road and 10 Mile Road, Novi, Michigan",
+        key="intersection_input"
+    )
+    
+    if st.button("➕ Configure This Intersection", type="primary"):
+        if intersection_name:
+            st.session_state.configuring_intersection = intersection_name
+        else:
+            st.warning("Please enter an intersection name first!")
+    
+    # Configuration section (appears when user clicks configure)
+    if 'configuring_intersection' in st.session_state and st.session_state.configuring_intersection:
+        st.markdown("---")
+        st.subheader(f"⚙️ Configuration for: {st.session_state.configuring_intersection}")
+        
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            intersection_name = st.text_input(
-                "Intersection Name:",
-                placeholder="Haggerty Road and 10 Mile Road, Novi, Michigan"
-            )
+            st.write("**Northbound**")
+            nb_lanes = st.number_input("Lanes", min_value=1, max_value=6, value=2, key="nb_lanes")
+            nb_speed = st.number_input("Speed (mph)", min_value=15, max_value=70, value=30, key="nb_speed")
+            nb_twltl = 1 if st.checkbox("TWLTL", key="nb_twltl") else 0
+            nb_rt_shared = st.checkbox("Right turn shared", value=True, key="nb_rt_shared")
+            nb_rt_storage = 150
+            if not nb_rt_shared:
+                nb_rt_storage = st.number_input("RT Storage (ft)", min_value=50, max_value=500, value=150, key="nb_rt_storage")
         
         with col2:
-            add_button = st.form_submit_button("➕ Add Intersection", use_container_width=True)
+            st.write("**Southbound**")
+            sb_lanes = st.number_input("Lanes", min_value=1, max_value=6, value=2, key="sb_lanes")
+            sb_speed = st.number_input("Speed (mph)", min_value=15, max_value=70, value=30, key="sb_speed")
+            sb_twltl = 1 if st.checkbox("TWLTL", key="sb_twltl") else 0
+            sb_rt_shared = st.checkbox("Right turn shared", value=True, key="sb_rt_shared")
+            sb_rt_storage = 150
+            if not sb_rt_shared:
+                sb_rt_storage = st.number_input("RT Storage (ft)", min_value=50, max_value=500, value=150, key="sb_rt_storage")
         
-        if add_button and intersection_name:
-            with st.spinner("Configuring intersection..."):
-                # Create configuration form
-                st.subheader(f"Configuration for: {intersection_name}")
-                
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.write("**Northbound**")
-                    nb_lanes = st.number_input("Lanes", min_value=1, max_value=6, value=2, key="nb_lanes")
-                    nb_speed = st.number_input("Speed (mph)", min_value=15, max_value=70, value=30, key="nb_speed")
-                    nb_twltl = 1 if st.checkbox("TWLTL", key="nb_twltl") else 0
-                
-                with col2:
-                    st.write("**Southbound**")
-                    sb_lanes = st.number_input("Lanes", min_value=1, max_value=6, value=2, key="sb_lanes")
-                    sb_speed = st.number_input("Speed (mph)", min_value=15, max_value=70, value=30, key="sb_speed")
-                    sb_twltl = 1 if st.checkbox("TWLTL", key="sb_twltl") else 0
-                
-                with col3:
-                    st.write("**Eastbound**")
-                    eb_lanes = st.number_input("Lanes", min_value=1, max_value=6, value=2, key="eb_lanes")
-                    eb_speed = st.number_input("Speed (mph)", min_value=15, max_value=70, value=30, key="eb_speed")
-                    eb_twltl = 1 if st.checkbox("TWLTL", key="eb_twltl") else 0
-                
-                with col4:
-                    st.write("**Westbound**")
-                    wb_lanes = st.number_input("Lanes", min_value=1, max_value=6, value=2, key="wb_lanes")
-                    wb_speed = st.number_input("Speed (mph)", min_value=15, max_value=70, value=30, key="wb_speed")
-                    wb_twltl = 1 if st.checkbox("TWLTL", key="wb_twltl") else 0
-                
-                confirm_add = st.form_submit_button("✅ Confirm & Add", use_container_width=True)
-                
-                if confirm_add:
-                    int_data = {
-                        'name': intersection_name,
-                        'lanes': {'NB': nb_lanes, 'SB': sb_lanes, 'EB': eb_lanes, 'WB': wb_lanes},
-                        'speed': {'NB': nb_speed, 'SB': sb_speed, 'EB': eb_speed, 'WB': wb_speed},
-                        'twltl': {'NB': nb_twltl, 'SB': sb_twltl, 'EB': eb_twltl, 'WB': wb_twltl}
+        with col3:
+            st.write("**Eastbound**")
+            eb_lanes = st.number_input("Lanes", min_value=1, max_value=6, value=2, key="eb_lanes")
+            eb_speed = st.number_input("Speed (mph)", min_value=15, max_value=70, value=30, key="eb_speed")
+            eb_twltl = 1 if st.checkbox("TWLTL", key="eb_twltl") else 0
+            eb_rt_shared = st.checkbox("Right turn shared", value=True, key="eb_rt_shared")
+            eb_rt_storage = 150
+            if not eb_rt_shared:
+                eb_rt_storage = st.number_input("RT Storage (ft)", min_value=50, max_value=500, value=150, key="eb_rt_storage")
+        
+        with col4:
+            st.write("**Westbound**")
+            wb_lanes = st.number_input("Lanes", min_value=1, max_value=6, value=2, key="wb_lanes")
+            wb_speed = st.number_input("Speed (mph)", min_value=15, max_value=70, value=30, key="wb_speed")
+            wb_twltl = 1 if st.checkbox("TWLTL", key="wb_twltl") else 0
+            wb_rt_shared = st.checkbox("Right turn shared", value=True, key="wb_rt_shared")
+            wb_rt_storage = 150
+            if not wb_rt_shared:
+                wb_rt_storage = st.number_input("RT Storage (ft)", min_value=50, max_value=500, value=150, key="wb_rt_storage")
+        
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            if st.button("✅ Confirm & Add Intersection", type="primary", use_container_width=True):
+                int_data = {
+                    'name': st.session_state.configuring_intersection,
+                    'lanes': {'NB': nb_lanes, 'SB': sb_lanes, 'EB': eb_lanes, 'WB': wb_lanes},
+                    'speed': {'NB': nb_speed, 'SB': sb_speed, 'EB': eb_speed, 'WB': wb_speed},
+                    'twltl': {'NB': nb_twltl, 'SB': sb_twltl, 'EB': eb_twltl, 'WB': wb_twltl},
+                    'rt_shared': {
+                        'NB': 2 if nb_rt_shared else 0,
+                        'SB': 2 if sb_rt_shared else 0,
+                        'EB': 2 if eb_rt_shared else 0,
+                        'WB': 2 if wb_rt_shared else 0
+                    },
+                    'rt_storage': {
+                        'NB': nb_rt_storage,
+                        'SB': sb_rt_storage,
+                        'EB': eb_rt_storage,
+                        'WB': wb_rt_storage
                     }
-                    st.session_state.intersections_data.append(int_data)
-                    st.success(f"✅ Added: {intersection_name}")
-                    st.rerun()
+                }
+                st.session_state.intersections_data.append(int_data)
+                st.success(f"✅ Added: {st.session_state.configuring_intersection}")
+                del st.session_state.configuring_intersection
+                st.rerun()
+        
+        with col_b:
+            if st.button("❌ Cancel", use_container_width=True):
+                del st.session_state.configuring_intersection
+                st.rerun()
     
     # Display added intersections
     if st.session_state.intersections_data:
