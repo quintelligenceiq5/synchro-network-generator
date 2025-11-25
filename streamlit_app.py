@@ -109,7 +109,7 @@ class SynchroGenerator:
         y = int((lat - self.origin_lat) * lat_feet)
         return x, y
     
-    def generate_network(self, intersections_data):
+    def generate_network(self, intersections_data, connections=None):
         """Generate complete Synchro network file"""
         all_nodes = []
         links = []
@@ -162,7 +162,8 @@ class SynchroGenerator:
                     'y': y + dy,
                     'z': 0,
                     'direction': direction,
-                    'center_node': center_id
+                    'center_node': center_id,
+                    'intersection_idx': idx
                 }
                 all_nodes.append(approach_node)
                 approaches.append(approach_node)
@@ -171,7 +172,8 @@ class SynchroGenerator:
             intersection = {
                 'center_node': center_node,
                 'approaches': approaches,
-                'config': int_data
+                'config': int_data,
+                'idx': idx
             }
             intersections.append(intersection)
             
@@ -200,7 +202,77 @@ class SynchroGenerator:
                     'twltl': int_data['twltl'][opposite]
                 })
         
+        # Apply connections (merge approach nodes)
+        if connections:
+            for int1_idx, int2_idx in connections:
+                self.connect_intersections(intersections, all_nodes, links, int1_idx, int2_idx)
+        
         return self.generate_file_content(all_nodes, links, intersections)
+    
+    def connect_intersections(self, intersections, all_nodes, links, int1_idx, int2_idx):
+        """Connect two intersections by merging their shared approach nodes"""
+        int1 = next((i for i in intersections if i['idx'] == int1_idx), None)
+        int2 = next((i for i in intersections if i['idx'] == int2_idx), None)
+        
+        if not int1 or not int2:
+            return
+        
+        center1 = int1['center_node']
+        center2 = int2['center_node']
+        
+        dx = center2['x'] - center1['x']
+        dy = center2['y'] - center1['y']
+        
+        # Determine which approaches to merge based on relative positions
+        if abs(dx) > abs(dy):  # East-West connection
+            if dx > 0:  # int2 is east of int1
+                dir1, dir2 = 'EB', 'WB'
+            else:  # int2 is west of int1
+                dir1, dir2 = 'WB', 'EB'
+        else:  # North-South connection
+            if dy > 0:  # int2 is north of int1
+                dir1, dir2 = 'NB', 'SB'
+            else:  # int2 is south of int1
+                dir1, dir2 = 'SB', 'NB'
+        
+        # Find the approach nodes
+        approach1 = next((a for a in int1['approaches'] if a['direction'] == dir1), None)
+        approach2 = next((a for a in int2['approaches'] if a['direction'] == dir2), None)
+        
+        if not approach1 or not approach2:
+            return
+        
+        # Calculate midpoint
+        mid_x = (approach1['x'] + approach2['x']) // 2
+        mid_y = (approach1['y'] + approach2['y']) // 2
+        
+        # Update approach1 position to midpoint
+        approach1['x'] = mid_x
+        approach1['y'] = mid_y
+        
+        # Update all links that reference approach2 to use approach1
+        for link in links:
+            if link['from_node'] == approach2['id']:
+                link['from_node'] = approach1['id']
+            if link['to_node'] == approach2['id']:
+                link['to_node'] = approach1['id']
+        
+        # Remove approach2 from all_nodes
+        all_nodes[:] = [n for n in all_nodes if n['id'] != approach2['id']]
+        
+        # Update distances in links
+        dist1 = int(math.sqrt((mid_x - center1['x'])**2 + (mid_y - center1['y'])**2))
+        dist2 = int(math.sqrt((mid_x - center2['x'])**2 + (mid_y - center2['y'])**2))
+        
+        for link in links:
+            if link['from_node'] == approach1['id'] and link['to_node'] == center1['id']:
+                link['distance'] = dist1
+            elif link['from_node'] == center1['id'] and link['to_node'] == approach1['id']:
+                link['distance'] = dist1
+            elif link['from_node'] == approach1['id'] and link['to_node'] == center2['id']:
+                link['distance'] = dist2
+            elif link['from_node'] == center2['id'] and link['to_node'] == approach1['id']:
+                link['distance'] = dist2
     
     def generate_lanes_section(self, center_node_id, intersections):
         """Generate complete lanes section for an intersection"""
@@ -558,7 +630,8 @@ class SynchroGenerator:
 def save_to_google_drive(filename, content, user_email):
     """Save file to Google Drive"""
     try:
-        creds_dict = json.loads(st.secrets["google_credentials"])
+        # Convert st.secrets to dict properly
+        creds_dict = dict(st.secrets["google_credentials"])
         creds = service_account.Credentials.from_service_account_info(
             creds_dict,
             scopes=['https://www.googleapis.com/auth/drive.file']
@@ -584,7 +657,8 @@ def save_to_google_drive(filename, content, user_email):
 def log_to_google_sheets(user_email, intersections, file_link, status):
     """Log generation to Google Sheets"""
     try:
-        creds_dict = json.loads(st.secrets["google_credentials"])
+        # Convert st.secrets to dict properly
+        creds_dict = dict(st.secrets["google_credentials"])
         creds = service_account.Credentials.from_service_account_info(
             creds_dict,
             scopes=['https://www.googleapis.com/auth/spreadsheets']
@@ -735,9 +809,9 @@ def main():
     
     # Display added intersections
     if st.session_state.intersections_data:
-        st.markdown("### Added Intersections:")
+        st.markdown("### 📍 Added Intersections:")
         for idx, int_data in enumerate(st.session_state.intersections_data):
-            with st.expander(f"{idx+1}. {int_data['name']}"):
+            with st.expander(f"{idx+1}. {int_data['name']}", expanded=False):
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("NB Lanes", int_data['lanes']['NB'])
                 col2.metric("SB Lanes", int_data['lanes']['SB'])
@@ -747,6 +821,72 @@ def main():
                 if st.button(f"🗑️ Remove", key=f"remove_{idx}"):
                     st.session_state.intersections_data.pop(idx)
                     st.rerun()
+    
+    # Step 1.5: Connect Intersections (NEW FEATURE)
+    if len(st.session_state.intersections_data) >= 2:
+        st.markdown('<div class="step-header"><h2>Step 1.5: Connect Adjacent Intersections (Optional)</h2></div>', unsafe_allow_html=True)
+        
+        st.info("""
+        **💡 Connect intersections to create corridors**
+        
+        When two intersections are connected:
+        - Their shared approach nodes are merged
+        - Creates a continuous roadway segment
+        - Distances are automatically calculated
+        
+        **Example:** If Intersection A is east of Intersection B, connecting them merges:
+        - Intersection A's WB approach with Intersection B's EB approach
+        """)
+        
+        # Initialize connections list
+        if 'connections' not in st.session_state:
+            st.session_state.connections = []
+        
+        col1, col2, col3 = st.columns([2, 2, 1])
+        
+        with col1:
+            int1_idx = st.selectbox(
+                "First Intersection:",
+                options=range(len(st.session_state.intersections_data)),
+                format_func=lambda x: f"{x}: {st.session_state.intersections_data[x]['name']}",
+                key="connect_int1"
+            )
+        
+        with col2:
+            int2_idx = st.selectbox(
+                "Second Intersection:",
+                options=range(len(st.session_state.intersections_data)),
+                format_func=lambda x: f"{x}: {st.session_state.intersections_data[x]['name']}",
+                key="connect_int2"
+            )
+        
+        with col3:
+            st.write("")  # Spacer
+            st.write("")  # Spacer
+            if st.button("🔗 Connect These", type="secondary"):
+                if int1_idx == int2_idx:
+                    st.error("Cannot connect an intersection to itself!")
+                else:
+                    # Check if already connected
+                    connection = tuple(sorted([int1_idx, int2_idx]))
+                    if connection in st.session_state.connections:
+                        st.warning("These intersections are already connected!")
+                    else:
+                        st.session_state.connections.append(connection)
+                        st.success(f"✅ Connected intersections {int1_idx} and {int2_idx}")
+                        st.rerun()
+        
+        # Display connections
+        if st.session_state.connections:
+            st.markdown("#### 🔗 Active Connections:")
+            for idx, (i1, i2) in enumerate(st.session_state.connections):
+                col_a, col_b = st.columns([4, 1])
+                with col_a:
+                    st.write(f"**{idx+1}.** {st.session_state.intersections_data[i1]['name']} ↔ {st.session_state.intersections_data[i2]['name']}")
+                with col_b:
+                    if st.button("❌ Remove", key=f"remove_conn_{idx}"):
+                        st.session_state.connections.pop(idx)
+                        st.rerun()
     
     # Step 2: Generate Files
     if st.session_state.intersections_data:
@@ -758,7 +898,14 @@ def main():
             else:
                 with st.spinner("Generating network..."):
                     generator = SynchroGenerator()
-                    file_content = generator.generate_network(st.session_state.intersections_data)
+                    
+                    # Get connections if they exist
+                    connections = st.session_state.get('connections', [])
+                    
+                    file_content = generator.generate_network(
+                        st.session_state.intersections_data,
+                        connections=connections
+                    )
                     
                     # Save to Google Drive
                     file_link = save_to_google_drive("synchro_network.txt", file_content, user_email)
