@@ -630,7 +630,7 @@ class SynchroGenerator:
 def save_to_google_drive(filename, content, user_email):
     """Save file to Google Drive"""
     try:
-        # Convert st.secrets to dict properly
+        # Access secrets correctly for Streamlit Cloud
         creds_dict = {
             "type": st.secrets["google_credentials"]["type"],
             "project_id": st.secrets["google_credentials"]["project_id"],
@@ -670,7 +670,7 @@ def save_to_google_drive(filename, content, user_email):
 def log_to_google_sheets(user_email, intersections, file_link, status):
     """Log generation to Google Sheets"""
     try:
-        # Convert st.secrets to dict properly
+        # Access secrets correctly for Streamlit Cloud
         creds_dict = {
             "type": st.secrets["google_credentials"]["type"],
             "project_id": st.secrets["google_credentials"]["project_id"],
@@ -972,3 +972,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
