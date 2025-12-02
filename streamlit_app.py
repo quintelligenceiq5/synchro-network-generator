@@ -659,7 +659,11 @@ def save_to_google_drive(filename, content, user_email):
             'parents': [folder_id]
         }
         
-        media = MediaIoBaseUpload(io.BytesIO(content.encode('utf-8')), mimetype='text/plain', resumable=True)
+        media = MediaIoBaseUpload(
+    io.BytesIO(content.encode("utf-8")),  # ensure bytes
+    mimetype="text/plain",
+    resumable=True
+)
         file = service.files().create(body=file_metadata, media_body=media, fields='id,webViewLink').execute()
         
         return file.get('webViewLink')
@@ -972,4 +976,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
