@@ -659,7 +659,7 @@ def save_to_google_drive(filename, content, user_email):
             'parents': [folder_id]
         }
         
-        if isinstance(content, str):
+if isinstance(content, str):
     byte_stream = io.BytesIO(content.encode("utf-8"))
 elif isinstance(content, bytes):
     byte_stream = io.BytesIO(content)
@@ -977,5 +977,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
