@@ -659,7 +659,16 @@ def save_to_google_drive(filename, content, user_email):
             'parents': [folder_id]
         }
         
-        media = MediaIoBaseUpload(io.BytesIO(content.encode('utf-8')), mimetype='text/plain', resumable=True)
+        if isinstance(content, str):
+    byte_stream = io.BytesIO(content.encode("utf-8"))
+elif isinstance(content, bytes):
+    byte_stream = io.BytesIO(content)
+else:
+    # Convert other types (like dict) to string first
+    byte_stream = io.BytesIO(str(content).encode("utf-8"))
+
+media = MediaIoBaseUpload(byte_stream, mimetype="text/plain", resumable=True)
+       
         file = service.files().create(body=file_metadata, media_body=media, fields='id,webViewLink').execute()
         
         return file.get('webViewLink')
@@ -697,6 +706,7 @@ def log_to_google_sheets(user_email, intersections, file_link, status):
         ])
     except Exception as e:
         st.error(f"Error logging to Google Sheets: {e}")
+         st.write(traceback.format_exc())
 
 # Main App
 def main():
@@ -967,4 +977,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
