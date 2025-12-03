@@ -670,33 +670,28 @@ def save_to_google_drive(filename, content, user_email):
 def log_to_google_sheets(user_email, intersections, file_link, status):
     """Log generation to Google Sheets"""
     try:
-        # Convert st.secrets to dict properly
-        creds_dict = {
-            "type": st.secrets["google_credentials"]["type"],
-            "project_id": st.secrets["google_credentials"]["project_id"],
-            "private_key_id": st.secrets["google_credentials"]["private_key_id"],
-            "private_key": st.secrets["google_credentials"]["private_key"],
-            "client_email": st.secrets["google_credentials"]["client_email"],
-            "client_id": st.secrets["google_credentials"]["client_id"],
-            "auth_uri": st.secrets["google_credentials"]["auth_uri"],
-            "token_uri": st.secrets["google_credentials"]["token_uri"],
-            "auth_provider_x509_cert_url": st.secrets["google_credentials"]["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": st.secrets["google_credentials"]["client_x509_cert_url"],
-            "universe_domain": st.secrets["google_credentials"]["universe_domain"]
-        }
-        
+        creds_dict = dict(st.secrets["google_credentials"])
+
         creds = service_account.Credentials.from_service_account_info(
             creds_dict,
-            scopes=['https://www.googleapis.com/auth/spreadsheets']
+            scopes=[
+                'https://www.googleapis.com/auth/spreadsheets',
+                'https://www.googleapis.com/auth/drive'
+            ]
         )
-        
+
         client = gspread.authorize(creds)
         sheet = client.open_by_key(st.secrets["google_sheet_id"]).sheet1
-        
+
+        # Ensure intersections is a string
+        intersections_str = (
+            ', '.join(intersections) if isinstance(intersections, list) else str(intersections)
+        )
+
         sheet.append_row([
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             user_email,
-            ', '.join(intersections),
+            intersections_str,
             file_link or 'N/A',
             status
         ])
@@ -972,3 +967,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
