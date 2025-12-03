@@ -630,7 +630,7 @@ class SynchroGenerator:
 def save_to_google_drive(filename, content, user_email):
     """Save file to Google Drive"""
     try:
-        # Access secrets correctly for Streamlit Cloud
+        # Convert st.secrets to dict properly
         creds_dict = {
             "type": st.secrets["google_credentials"]["type"],
             "project_id": st.secrets["google_credentials"]["project_id"],
@@ -659,11 +659,7 @@ def save_to_google_drive(filename, content, user_email):
             'parents': [folder_id]
         }
         
-        media = MediaIoBaseUpload(
-    io.BytesIO(content.encode("utf-8")),  # ensure bytes
-    mimetype="text/plain",
-    resumable=True
-)
+        media = MediaIoBaseUpload(io.BytesIO(content.encode('utf-8')), mimetype='text/plain', resumable=True)
         file = service.files().create(body=file_metadata, media_body=media, fields='id,webViewLink').execute()
         
         return file.get('webViewLink')
@@ -674,7 +670,7 @@ def save_to_google_drive(filename, content, user_email):
 def log_to_google_sheets(user_email, intersections, file_link, status):
     """Log generation to Google Sheets"""
     try:
-        # Access secrets correctly for Streamlit Cloud
+        # Convert st.secrets to dict properly
         creds_dict = {
             "type": st.secrets["google_credentials"]["type"],
             "project_id": st.secrets["google_credentials"]["project_id"],
@@ -976,5 +972,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
