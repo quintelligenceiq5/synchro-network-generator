@@ -630,78 +630,78 @@ class SynchroGenerator:
 def save_to_google_drive(filename, content, user_email):
     """Save file to Google Drive"""
     try:
-        # Build credentials from secrets
-        creds_dict = dict(st.secrets["google_credentials"])
+        # Convert st.secrets to dict properly
+        creds_dict = {
+            "type": st.secrets["google_credentials"]["type"],
+            "project_id": st.secrets["google_credentials"]["project_id"],
+            "private_key_id": st.secrets["google_credentials"]["private_key_id"],
+            "private_key": st.secrets["google_credentials"]["private_key"],
+            "client_email": st.secrets["google_credentials"]["client_email"],
+            "client_id": st.secrets["google_credentials"]["client_id"],
+            "auth_uri": st.secrets["google_credentials"]["auth_uri"],
+            "token_uri": st.secrets["google_credentials"]["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["google_credentials"]["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": st.secrets["google_credentials"]["client_x509_cert_url"],
+            "universe_domain": st.secrets["google_credentials"]["universe_domain"]
+        }
+        
         creds = service_account.Credentials.from_service_account_info(
             creds_dict,
             scopes=['https://www.googleapis.com/auth/drive.file']
         )
+        
         service = build('drive', 'v3', credentials=creds)
-
+        
         folder_id = st.secrets["google_drive_folder_id"]
-
+        
         file_metadata = {
             'name': f"{user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}",
             'parents': [folder_id]
         }
-
-        # ✅ Ensure content is always a seekable byte stream
-        if isinstance(content, str):
-            byte_stream = io.BytesIO(content.encode("utf-8"))
-        elif isinstance(content, bytes):
-            byte_stream = io.BytesIO(content)
-        else:
-            byte_stream = io.BytesIO(str(content).encode("utf-8"))
-
-        media = MediaIoBaseUpload(byte_stream, mimetype="text/plain", resumable=True)
-
-        file = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id,webViewLink'
-        ).execute()
-
+        
+        media = MediaIoBaseUpload(io.BytesIO(content.encode('utf-8')), mimetype='text/plain', resumable=True)
+        file = service.files().create(body=file_metadata, media_body=media, fields='id,webViewLink').execute()
+        
         return file.get('webViewLink')
-
     except Exception as e:
-        import traceback
         st.error(f"Error saving to Google Drive: {e}")
-        st.write(traceback.format_exc())
         return None
 
 def log_to_google_sheets(user_email, intersections, file_link, status):
     """Log generation to Google Sheets"""
     try:
-        # Build credentials from secrets
-        creds_dict = dict(st.secrets["google_credentials"])
+        # Convert st.secrets to dict properly
+        creds_dict = {
+            "type": st.secrets["google_credentials"]["type"],
+            "project_id": st.secrets["google_credentials"]["project_id"],
+            "private_key_id": st.secrets["google_credentials"]["private_key_id"],
+            "private_key": st.secrets["google_credentials"]["private_key"],
+            "client_email": st.secrets["google_credentials"]["client_email"],
+            "client_id": st.secrets["google_credentials"]["client_id"],
+            "auth_uri": st.secrets["google_credentials"]["auth_uri"],
+            "token_uri": st.secrets["google_credentials"]["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["google_credentials"]["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": st.secrets["google_credentials"]["client_x509_cert_url"],
+            "universe_domain": st.secrets["google_credentials"]["universe_domain"]
+        }
+        
         creds = service_account.Credentials.from_service_account_info(
             creds_dict,
-            scopes=[
-                'https://www.googleapis.com/auth/spreadsheets',
-                'https://www.googleapis.com/auth/drive'
-            ]
+            scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
-
+        
         client = gspread.authorize(creds)
         sheet = client.open_by_key(st.secrets["google_sheet_id"]).sheet1
-
-        # ✅ Ensure intersections is always a string
-        intersections_str = (
-            ', '.join(intersections) if isinstance(intersections, list) else str(intersections)
-        )
-
+        
         sheet.append_row([
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             user_email,
-            intersections_str,
+            ', '.join(intersections),
             file_link or 'N/A',
             status
         ])
-
     except Exception as e:
-        import traceback
         st.error(f"Error logging to Google Sheets: {e}")
-        st.write(traceback.format_exc())
 
 # Main App
 def main():
