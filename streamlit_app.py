@@ -627,9 +627,8 @@ class SynchroGenerator:
         return output.getvalue()
 
 def save_to_google_drive(filename, content, user_email):
-    """Save file to Google Drive"""
+    """Save file to Google Drive - service account's own space"""
     try:
-        # Convert st.secrets to dict properly
         creds_dict = {
             "type": st.secrets["google_credentials"]["type"],
             "project_id": st.secrets["google_credentials"]["project_id"],
@@ -651,21 +650,21 @@ def save_to_google_drive(filename, content, user_email):
         
         service = build('drive', 'v3', credentials=creds)
         
-        folder_id = st.secrets["google_credentials"]["google_drive_folder_id"]
-        
+        # DON'T specify a parent folder - let it save to service account's root
         file_metadata = {
-            'name': f"{user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}",
-            'parents': [folder_id]
+            'name': f"{user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
         }
         
         media = MediaIoBaseUpload(io.BytesIO(content.encode('utf-8')), mimetype='text/plain', resumable=True)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id,webViewLink').execute()
+        file = service.files().create(body=file_metadata, media_body=media, fields='id,name').execute()
         
-        return file.get('webViewLink')
+        # Return file ID instead of web link
+        file_id = file.get('id')
+        return f"File ID: {file_id}"
     except Exception as e:
         st.error(f"Error saving to Google Drive: {e}")
         return None
-
+        
 def log_to_google_sheets(user_email, intersections, file_link, status):
     """Log generation to Google Sheets"""
     try:
@@ -978,6 +977,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
