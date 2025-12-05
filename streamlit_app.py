@@ -690,7 +690,7 @@ def log_to_google_sheets(user_email, intersections, file_link, status):
         )
         
         client = gspread.authorize(creds)
-        sheet = client.open_by_key(st.secrets["google_sheet_id"]).sheet1
+        sheet = client.open_by_key(st.secrets["google_credentials"]["google_sheet_id"]).sheet1
         
         sheet.append_row([
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -978,6 +978,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
