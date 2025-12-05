@@ -4,14 +4,6 @@ Generates Synchro-compatible files with automatic backup to Google Drive
 """
 
 import streamlit as st
-import io
-from datetime import datetime
-# ... your other imports ...
-
-# ✅ DEBUG: See what secrets Streamlit Cloud is actually loading
-st.write("SECRETS KEYS:", list(st.secrets.keys()))
-st.write("RAW SECRETS:", st.secrets)
-
 import requests
 import math
 from datetime import datetime
@@ -980,4 +972,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
