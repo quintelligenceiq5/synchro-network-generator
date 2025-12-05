@@ -946,7 +946,7 @@ def main():
                    # file_link = save_to_google_drive("synchro_network.txt", file_content, user_email)
                     
                     # Log to Google Sheets
-                   # intersection_names = [int_data['name'] for int_data in st.session_state.intersections_data]
+                   intersection_names = [int_data['name'] for int_data in st.session_state.intersections_data]
                    # log_to_google_sheets(user_email, intersection_names, file_link, "Success")
 
                     # Replace the save_to_google_drive call with:
@@ -992,6 +992,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
