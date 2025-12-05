@@ -627,7 +627,7 @@ class SynchroGenerator:
         return output.getvalue()
 
 def save_file_content_to_sheet(filename, content, user_email, intersections):
-    """Save file content directly to Google Sheets"""
+    """Save file content directly to Google Sheets - optimized batch write"""
     try:
         creds_dict = {
             "type": st.secrets["google_credentials"]["type"],
@@ -652,15 +652,18 @@ def save_file_content_to_sheet(filename, content, user_email, intersections):
         spreadsheet = client.open_by_key(st.secrets["google_credentials"]["google_sheet_id"])
         
         # Create a new sheet with timestamp
-        sheet_name = f"{user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        new_sheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=20)
+        sheet_name = f"{user_email.split('@')[0]}_{datetime.now().strftime('%m%d_%H%M')}"
+        new_sheet = spreadsheet.add_worksheet(title=sheet_name[:100], rows=1000, cols=20)
         
-        # Write the content
+        # Prepare all data at once
         rows = content.split('\n')
-        for i, row in enumerate(rows[:1000], start=1):  # Limit to 1000 rows
+        data = []
+        for row in rows[:1000]:  # Limit to 1000 rows
             cells = row.split('\t')
-            if cells:
-                new_sheet.update(f'A{i}', [cells])
+            data.append(cells)
+        
+        # Single batch write - only 1 API call!
+        new_sheet.update('A1', data)
         
         sheet_url = f"https://docs.google.com/spreadsheets/d/{st.secrets['google_credentials']['google_sheet_id']}/edit#gid={new_sheet.id}"
         return sheet_url
@@ -993,6 +996,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
