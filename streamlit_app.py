@@ -730,7 +730,6 @@ def main():
     - 📝 Usage tracking
     """)
 
-def main():
     # TEMPORARY DEBUG CODE - Remove after fixing
     st.write("DEBUG: Available secrets keys:")
     st.write(list(st.secrets.keys()))
@@ -999,6 +998,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
