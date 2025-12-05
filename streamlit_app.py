@@ -2,7 +2,6 @@
 Synchro Network Generator - Streamlit Web Application
 Generates Synchro-compatible files with automatic backup to Google Drive
 """
-  
 import streamlit as st
 import requests
 import math
@@ -723,13 +722,7 @@ def main():
     if "google_credentials" in st.secrets:
         st.write("google_credentials keys:", list(st.secrets["google_credentials"].keys()))
     # END DEBUG CODE
-    
-    st.markdown('<h1 class="main-header">🚦 Synchro Network Generator</h1>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    **Welcome!** This tool automatically generates Synchro-compatible network files.
-    # ... rest of your existing code
-    
+       
     # Sidebar
     with st.sidebar:
         st.header("📋 Instructions")
@@ -985,6 +978,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
