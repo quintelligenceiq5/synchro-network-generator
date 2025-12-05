@@ -718,15 +718,13 @@ def main():
     **Features:**
     - 🌍 Automatic geocoding of intersections
     - 📊 Complete network configuration
-    - 💾 Auto-backup to Google Drive
-    - 📝 Usage tracking
     """)
 
     # TEMPORARY DEBUG CODE - Remove after fixing
-    st.write("DEBUG: Available secrets keys:")
-    st.write(list(st.secrets.keys()))
-    if "google_credentials" in st.secrets:
-        st.write("google_credentials keys:", list(st.secrets["google_credentials"].keys()))
+    # st.write("DEBUG: Available secrets keys:")
+    # st.write(list(st.secrets.keys()))
+    # if "google_credentials" in st.secrets:
+    #    st.write("google_credentials keys:", list(st.secrets["google_credentials"].keys()))
     # END DEBUG CODE
        
     # Sidebar
@@ -996,6 +994,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
