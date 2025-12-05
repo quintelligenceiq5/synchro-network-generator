@@ -651,7 +651,7 @@ def save_to_google_drive(filename, content, user_email):
         
         service = build('drive', 'v3', credentials=creds)
         
-        folder_id = st.secrets["google_drive_folder_id"]
+        folder_id = st.secrets["google_credentials"]["google_drive_folder_id"]
         
         file_metadata = {
             'name': f"{user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}",
@@ -978,6 +978,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
