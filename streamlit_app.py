@@ -626,8 +626,8 @@ class SynchroGenerator:
         
         return output.getvalue()
 
-def save_to_google_drive(filename, content, user_email):
-    """Save file to Google Drive - service account's own space"""
+def save_file_content_to_sheet(filename, content, user_email, intersections):
+    """Save file content directly to Google Sheets"""
     try:
         creds_dict = {
             "type": st.secrets["google_credentials"]["type"],
@@ -645,24 +645,28 @@ def save_to_google_drive(filename, content, user_email):
         
         creds = service_account.Credentials.from_service_account_info(
             creds_dict,
-            scopes=['https://www.googleapis.com/auth/drive.file']
+            scopes=['https://www.googleapis.com/auth/spreadsheets']
         )
         
-        service = build('drive', 'v3', credentials=creds)
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_key(st.secrets["google_credentials"]["google_sheet_id"])
         
-        # DON'T specify a parent folder - let it save to service account's root
-        file_metadata = {
-            'name': f"{user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
-        }
+        # Create a new sheet with timestamp
+        sheet_name = f"{user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        new_sheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=20)
         
-        media = MediaIoBaseUpload(io.BytesIO(content.encode('utf-8')), mimetype='text/plain', resumable=True)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id,name').execute()
+        # Write the content
+        rows = content.split('\n')
+        for i, row in enumerate(rows[:1000], start=1):  # Limit to 1000 rows
+            cells = row.split('\t')
+            if cells:
+                new_sheet.update(f'A{i}', [cells])
         
-        # Return file ID instead of web link
-        file_id = file.get('id')
-        return f"File ID: {file_id}"
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{st.secrets['google_credentials']['google_sheet_id']}/edit#gid={new_sheet.id}"
+        return sheet_url
+        
     except Exception as e:
-        st.error(f"Error saving to Google Drive: {e}")
+        st.error(f"Error saving to sheet: {e}")
         return None
         
 def log_to_google_sheets(user_email, intersections, file_link, status):
@@ -977,6 +981,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
