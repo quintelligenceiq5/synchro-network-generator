@@ -963,12 +963,17 @@ def main():
                     log_to_google_sheets(user_email, intersection_names, file_link, "Success")
                     
                     # Display success
+                    # st.markdown('<div class="success-box">', unsafe_allow_html=True)
+                    # st.success("✅ Synchro network generated successfully!")
+                    # if file_link:
+                    #    st.info(f"📁 Backup saved to Google Drive: [View File]({file_link})")
+                    # st.markdown('</div>', unsafe_allow_html=True)
+
+                    # Display success
                     st.markdown('<div class="success-box">', unsafe_allow_html=True)
                     st.success("✅ Synchro network generated successfully!")
-                    if file_link:
-                        st.info(f"📁 Backup saved to Google Drive: [View File]({file_link})")
                     st.markdown('</div>', unsafe_allow_html=True)
-                    
+
                     # Download buttons
                     col1, col2 = st.columns(2)
                     
@@ -994,6 +999,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
